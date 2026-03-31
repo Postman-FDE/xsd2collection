@@ -134,6 +134,42 @@ for (const collFile of collectionFiles) {
       }
     }
 
+    // Pre-request validation script
+    lines.push('scripts:');
+    lines.push('  - type: beforeRequest');
+    lines.push('    code: |-');
+    lines.push('      const xmlBody = pm.request.body.toString();');
+    lines.push('');
+    lines.push('      const validationResult = await new Promise((resolve, reject) => {');
+    lines.push('        pm.sendRequest({');
+    lines.push("          url: pm.variables.replaceIn('{{validationUrl}}') + pm.request.url.getPath(),");
+    lines.push('          method: \'POST\',');
+    lines.push('          header: {');
+    lines.push("            'Content-Type': 'application/xml'");
+    lines.push('          },');
+    lines.push('          body: {');
+    lines.push("            mode: 'raw',");
+    lines.push('            raw: xmlBody');
+    lines.push('          }');
+    lines.push('        }, function (err, response) {');
+    lines.push('          if (err) {');
+    lines.push('            reject(err);');
+    lines.push('            return;');
+    lines.push('          }');
+    lines.push('          resolve(response.json());');
+    lines.push('        });');
+    lines.push('      });');
+    lines.push('');
+    lines.push("      console.log('Validation result:', JSON.stringify(validationResult, null, 2));");
+    lines.push('');
+    lines.push('      if (!validationResult.valid) {');
+    lines.push("        console.error('❌ XSD Validation failed: ' + validationResult.message);");
+    lines.push("        throw new Error('XSD Validation failed: ' + validationResult.message);");
+    lines.push('      } else {');
+    lines.push("        console.log('✅ XSD validation passed, proceeding with request...');");
+    lines.push('      }');
+    lines.push('    language: text/javascript');
+
     const yaml = lines.join('\n') + '\n';
     fs.writeFileSync(filePath, yaml, 'utf-8');
     totalRequests++;
