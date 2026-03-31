@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <BasicDocument xmlns="http://example.com/xsd2collection/sample" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Id>Id</Id>
-  <Message>Message</Message>
+  <Id>DOC-1001</Id>
+  <Message>SAMPLE_TEXT</Message>
   <CreatedAt>2024-01-01T00:00:00</CreatedAt>
 </BasicDocument>

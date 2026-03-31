@@ -10,6 +10,12 @@ Read the `schemas/` folder, run the pipeline to generate XML and a Postman colle
 
 ---
 
+## When the user asks to generate
+
+If the user asks to **generate** or **regenerate** (XML, collections, Postman YAML, etc.), **run `run_pipeline.js` again** even when matching files already exist under `output/` or `postman/collections/`. Do not skip the run because outputs are present; rerunning overwrites them and is the intended behavior.
+
+---
+
 ## Step 1) Run the Pipeline
 
 Execute the pipeline script to generate all XML files and build the Postman collection JSON:

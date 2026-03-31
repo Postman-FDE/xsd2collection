@@ -16,7 +16,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<BasicDocument xmlns=\"http://example.com/xsd2collection/sample\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n  <Id>Id</Id>\n  <Message>Message</Message>\n  <CreatedAt>2024-01-01T00:00:00</CreatedAt>\n</BasicDocument>",
+          "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<BasicDocument xmlns=\"http://example.com/xsd2collection/sample\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n  <Id>DOC-1001</Id>\n  <Message>SAMPLE_TEXT</Message>\n  <CreatedAt>2024-01-01T00:00:00</CreatedAt>\n</BasicDocument>",
           "options": {
             "raw": {
               "language": "xml"

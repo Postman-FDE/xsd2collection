@@ -71,6 +71,7 @@ Use this when you run the pipeline yourself in a terminal and wire Postman to th
 
 - Put **only** XSD files that should each produce one XML + one request in the **same directory**.
 - The pipeline does **not** treat `.xsd` files sitting directly under the schemas root as a folder; use a subdirectory (see `schemas/sample/BasicDocument.xsd`).
+- **Optional sample overrides:** add `sample_values/<same path as under schemas/>/<Name>.json` (same basename as the `.xsd`). Format matches the generator: `FieldLevelDefaultValue` / `DataTypeLevelDefaultValue` arrays with `fieldName`/`default_value` or `data_type`/`default_value`. See `sample_values/sample/BasicDocument.json`.
 
 Example:
 

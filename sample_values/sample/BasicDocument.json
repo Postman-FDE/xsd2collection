@@ -1,0 +1,8 @@
+{
+  "FieldLevelDefaultValue": [
+    { "fieldName": "Id", "default_value": "DOC-1001" }
+  ],
+  "DataTypeLevelDefaultValue": [
+    { "data_type": "string", "default_value": "SAMPLE_TEXT" }
+  ]
+}
