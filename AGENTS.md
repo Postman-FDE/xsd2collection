@@ -1,11 +1,21 @@
 # AGENTS.md — XSD → XML → Postman Import
 
 ## Goal
+
 Read the `schemas/` folder, run the pipeline to generate XML and a Postman collection, then import the collection into Postman.
 
 ---
 
+## Project Structure
+
+- `schemas/` — XSD source files (organized in subdirectories)
+- `output/` — generated XML and Postman collection JSON (including `notes.md`)
+- `postman/collections/` — converted `.request.yaml` files for Postman
+- `postman/environments/` — generated environment files (e.g. `local.environment.yaml` with `validationUrl`)
+- `validation_server/` — Python HTTP validation server (`file_server.py`, `validate.py`, `requirements.txt`)
+
 ## Inputs
+
 - `schemas/` containing `*.xsd` files (organized in subdirectories)
 
 ---
@@ -27,9 +37,11 @@ node run_pipeline.js --schemas=schemas/ --output=output/
 - Discovers every subdirectory under `schemas/` that contains `.xsd` files.
 - Generates one XML per XSD file, validates each, and writes a `.postman_collection.json` per schema folder into `output/`.
 - The generated collection file for `schemas/integration/inbound/` will be at:
-  ```
+
+  ```text
   output/integration/inbound/integration_inbound.postman_collection.json
   ```
+
 - Run the script synchronously and check its exit code immediately when it returns — do not use any time-based delay or polling.
 - If the exit code is 0, proceed to Step 2.
 - If the exit code is non-zero, log the error output and stop.
@@ -40,15 +52,17 @@ node run_pipeline.js --schemas=schemas/ --output=output/
 
 `run_pipeline.js` calls `convert_collections.js` automatically after writing all collection JSONs. No manual step is needed.
 
-`convert_collections.js` reads each `.postman_collection.json` from `output/` and writes one `.request.yaml` file per request into `postman/collections/<folder_name>/`:
+`convert_collections.js` reads each `.postman_collection.json` from `output/` and writes one `.request.yaml` file per request into `postman/collections/<folder_name>/`. It also writes `postman/environments/local.environment.yaml` with `validationUrl` set to `http://localhost:3456`.
 
-```
+```text
 postman/collections/integration_inbound/
   MyMessage.request.yaml
   OtherMessage.request.yaml
   ...
 postman/collections/integration_outbound/
   ...
+postman/environments/
+  local.environment.yaml
 ```
 
 Postman automatically picks up any folder inside `postman/collections/` on the next Local View refresh. No restart or import action needed.
@@ -62,5 +76,6 @@ If `convert_collections.js` fails (non-zero exit), the pipeline logs the error i
 - [ ] `run_pipeline.js` exited with code 0
 - [ ] Collection JSON generated at `output/<rel>/<folder_name>.postman_collection.json`
 - [ ] `postman/collections/<folder_name>/` created with one `.request.yaml` per request
+- [ ] `postman/environments/local.environment.yaml` written with `validationUrl`
 - [ ] All collections (not just the first) converted and written
 - [ ] Postman Local View reflects the updated collections

@@ -1,13 +1,27 @@
 #!/usr/bin/env node
 /**
- * Pipeline Orchestrator
- * - Discovers XSD folders under --schemas dir
- * - Runs generate_xml.js for each folder
- * - Validates each generated XML with validate.py
- * - Creates one Postman collection per folder
+ * run_pipeline.js — Main pipeline orchestrator.
+ *
+ * Steps:
+ *   1. Discover every subdirectory under --schemas that contains .xsd files.
+ *   2. Run generate_xml.js for each folder to produce sample XML files.
+ *   3. Validate each generated XML against its XSD via validation_server/validate.py.
+ *   4. Build a Postman Collection v2.1 JSON per folder and write it to --output.
+ *   5. Run convert_collections.js to convert JSONs to Postman request YAMLs
+ *      and write postman/environments/local.environment.yaml.
  *
  * Usage:
- *   node run_pipeline.js --schemas=schemas/ --output=output/ [--python=python3] [--fetch-remote]
+ *   node run_pipeline.js --schemas=<schemas-root> --output=<output-root> [--python=python3] [--fetch-remote]
+ *
+ * Flags:
+ *   --schemas       Root directory containing schema subdirectories (required)
+ *   --output        Root directory for generated output files (required)
+ *   --python        Python executable used for validation (default: python3)
+ *   --fetch-remote  Pass through to generate_xml.js to allow fetching remote schemaLocation URLs
+ *
+ * Exit codes:
+ *   0   All folders processed; collections and YAMLs written successfully.
+ *   1   Missing required arguments, schemas directory not found, or fatal error.
  */
 
 const fs = require('fs');
@@ -40,7 +54,7 @@ const OUTPUT_ROOT = path.resolve(outputArg);
 const PYTHON = getArg('--python') || 'python3';
 const FETCH_REMOTE = process.argv.includes('--fetch-remote');
 const GENERATE_SCRIPT = path.join(__dirname, 'generate_xml.js');
-const VALIDATE_SCRIPT = path.join(__dirname, 'validate.py');
+const VALIDATE_SCRIPT = path.join(__dirname, 'validation_server', 'validate.py');
 
 if (!fs.existsSync(SCHEMAS_ROOT)) {
   console.error(`Schemas directory not found: ${SCHEMAS_ROOT}`);

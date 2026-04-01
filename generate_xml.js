@@ -1,9 +1,23 @@
 #!/usr/bin/env node
 /**
- * XSD → XML Generation Pipeline
- * Follows AGENTS.md steps 1-6
- * Handles UTF-8, UTF-16 LE, and UTF-16 BE encoded XSD files
- * No external dependencies - uses only Node.js built-in modules
+ * generate_xml.js — XSD → sample XML generator.
+ *
+ * Reads every .xsd file in --input and generates a sample XML instance for each,
+ * written to --output. Also writes a notes.md to --output summarising generation details.
+ *
+ * Features:
+ *   - Handles UTF-8, UTF-16 LE, and UTF-16 BE encoded XSD files.
+ *   - Supports optional per-field default value overrides via sample_values/<path>/<Name>.json.
+ *   - No npm dependencies — uses only Node.js built-in modules.
+ *   - Optionally fetches remote schemaLocation URLs when --fetch-remote is set.
+ *
+ * Usage:
+ *   node generate_xml.js --input=<xsd-dir> --output=<output-dir> [--fetch-remote]
+ *
+ * Flags:
+ *   --input         Directory containing .xsd files (required)
+ *   --output        Directory to write generated XML files and notes.md (required)
+ *   --fetch-remote  Allow fetching remote schemaLocation URLs referenced in XSDs
  */
 
 const fs = require('fs');
@@ -34,7 +48,7 @@ if (!inputArg || !outputArg) usage();
 const WORKING_DIR = __dirname;
 const XSD_SOURCE_DIR = path.resolve(inputArg);
 const OUTPUT_DIR = path.resolve(outputArg);
-const NOTES_FILE = path.join(WORKING_DIR, 'notes.md');
+const NOTES_FILE = path.join(OUTPUT_DIR, 'notes.md');
 
 const FETCH_REMOTE = process.argv.includes('--fetch-remote=true') || process.argv.includes('--fetch-remote');
 
