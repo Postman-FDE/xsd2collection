@@ -1,10 +1,21 @@
 #!/usr/bin/env node
 /**
- * convert_collections.js
+ * convert_collections.js — Postman collection JSON → request YAML converter.
  *
- * Reads every .postman_collection.json under output/ and writes
- * one .request.yaml per request into postman/collections/<folder_name>/.
- * Also writes a definition.yaml for each collection with the baseurl variable.
+ * Reads every .postman_collection.json under output/ and for each collection:
+ *   - Creates postman/collections/<collectionName>/ with one .request.yaml per request.
+ *   - Creates postman/collections/<collectionName>/.resources/definition.yaml (collection metadata).
+ *
+ * Each request YAML embeds a beforeRequest script that calls the validation server
+ * ({{validationUrl}}) to validate the XML body against its XSD before the request is sent.
+ *
+ * Also writes postman/environments/local.environment.yaml with:
+ *   - baseurl     — base URL for all requests (default: https://api.example.com)
+ *   - validationUrl — URL of the Python validation server (default: http://localhost:3456)
+ *
+ * Usage:
+ *   node convert_collections.js
+ *   (called automatically by run_pipeline.js after collection JSONs are written)
  */
 
 const fs   = require('fs');
@@ -12,6 +23,7 @@ const path = require('path');
 
 const OUTPUT_DIR      = path.join(__dirname, 'output');
 const COLLECTIONS_DIR = path.join(__dirname, 'postman', 'collections');
+const ENVIRONMENTS_DIR = path.join(__dirname, 'postman', 'environments');
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -64,17 +76,13 @@ for (const collFile of collectionFiles) {
   const destDir = path.join(COLLECTIONS_DIR, collName);
   fs.mkdirSync(destDir, { recursive: true });
 
-  // Write definition.yaml with baseurl variable
+  // Write definition.yaml (no collection variables)
   const resourcesDir = path.join(destDir, '.resources');
   fs.mkdirSync(resourcesDir, { recursive: true });
 
   const defYaml = [
     '$kind: collection',
     `name: ${yamlVal(collName)}`,
-    'variables:',
-    '  - key: baseurl',
-    "    value: 'https://api.example.com'",
-    "    description: 'Base URL for the API'",
   ].join('\n') + '\n';
   fs.writeFileSync(path.join(resourcesDir, 'definition.yaml'), defYaml, 'utf-8');
 
@@ -134,6 +142,42 @@ for (const collFile of collectionFiles) {
       }
     }
 
+    // Pre-request validation script
+    lines.push('scripts:');
+    lines.push('  - type: beforeRequest');
+    lines.push('    code: |-');
+    lines.push('      const xmlBody = pm.request.body.toString();');
+    lines.push('');
+    lines.push('      const validationResult = await new Promise((resolve, reject) => {');
+    lines.push('        pm.sendRequest({');
+    lines.push("          url: pm.variables.replaceIn('{{validationUrl}}') + pm.request.url.getPath(),");
+    lines.push('          method: \'POST\',');
+    lines.push('          header: {');
+    lines.push("            'Content-Type': 'application/xml'");
+    lines.push('          },');
+    lines.push('          body: {');
+    lines.push("            mode: 'raw',");
+    lines.push('            raw: xmlBody');
+    lines.push('          }');
+    lines.push('        }, function (err, response) {');
+    lines.push('          if (err) {');
+    lines.push('            reject(err);');
+    lines.push('            return;');
+    lines.push('          }');
+    lines.push('          resolve(response.json());');
+    lines.push('        });');
+    lines.push('      });');
+    lines.push('');
+    lines.push("      console.log('Validation result:', JSON.stringify(validationResult, null, 2));");
+    lines.push('');
+    lines.push('      if (!validationResult.valid) {');
+    lines.push("        console.error('❌ XSD Validation failed: ' + validationResult.message);");
+    lines.push("        throw new Error('XSD Validation failed: ' + validationResult.message);");
+    lines.push('      } else {');
+    lines.push("        console.log('✅ XSD validation passed, proceeding with request...');");
+    lines.push('      }');
+    lines.push('    language: text/javascript');
+
     const yaml = lines.join('\n') + '\n';
     fs.writeFileSync(filePath, yaml, 'utf-8');
     totalRequests++;
@@ -143,5 +187,21 @@ for (const collFile of collectionFiles) {
   totalCollections++;
   console.log(`  ✅ ${collName}: ${items.length} request(s) → ${destDir}`);
 }
+
+// Write Postman environment with validationUrl
+fs.mkdirSync(ENVIRONMENTS_DIR, { recursive: true });
+const envYaml = [
+  '$kind: environment',
+  'name: Local',
+  'values:',
+  '  - key: baseurl',
+  "    value: 'https://api.example.com'",
+  '    enabled: true',
+  '  - key: validationUrl',
+  "    value: 'http://localhost:3456'",
+  '    enabled: true',
+].join('\n') + '\n';
+fs.writeFileSync(path.join(ENVIRONMENTS_DIR, 'local.environment.yaml'), envYaml, 'utf-8');
+console.log('  ✅ Environment written → postman/environments/local.environment.yaml');
 
 console.log(`\nDone. ${totalCollections} collection(s), ${totalRequests} request file(s) written.`);

@@ -1,6 +1,0 @@
-$kind: collection
-name: sample
-variables:
-  - key: baseurl
-    value: 'https://api.example.com'
-    description: 'Base URL for the API'
