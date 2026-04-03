@@ -4,7 +4,7 @@ validate.py — XSD/XML validation helper.
 Validates an XML file against an XSD schema using the xmlschema library.
 
 Usage (CLI):
-    python3 validate.py <schema.xsd> <instance.xml>
+    python validate.py <schema.xsd> <instance.xml>
 
 Exit codes:
     0  — XML is valid (stdout contains ✅)

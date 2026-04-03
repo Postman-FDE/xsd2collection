@@ -1,0 +1,32 @@
+{
+  "typeDefaults": {
+    "string": "",
+    "int": "0",
+    "integer": "0",
+    "long": "0",
+    "short": "0",
+    "byte": "0",
+    "unsignedInt": "0",
+    "unsignedLong": "0",
+    "unsignedShort": "0",
+    "unsignedByte": "0",
+    "positiveInteger": "0",
+    "negativeInteger": "0",
+    "nonNegativeInteger": "0",
+    "nonPositiveInteger": "0",
+    "decimal": "0.0",
+    "float": "0.0",
+    "double": "0.0",
+    "boolean": "false",
+    "dateTime": "2024-01-01T00:00:00",
+    "date": "2024-01-01",
+    "time": "00:00:00",
+    "NMTOKENS": "",
+    "NMTOKEN": "",
+    "token": "",
+    "normalizedString": "",
+    "anyURI": "",
+    "base64Binary": "",
+    "hexBinary": ""
+  }
+}
