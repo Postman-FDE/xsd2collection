@@ -17,7 +17,7 @@ Responses:
     500  {"error": "<message>"}
 
 Usage:
-    python3 validation_server/file_server.py
+    python validation_server/file_server.py
     # Listening on http://localhost:3456
 
 Install dependencies first: pip install -r validation_server/requirements.txt

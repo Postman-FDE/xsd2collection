@@ -20,7 +20,7 @@ pip install -r validation_server/requirements.txt
 Start from the repo root, and keep it running in a separate terminal:
 
 ```bash
-python3 validation_server/file_server.py
+python validation_server/file_server.py
 ```
 
 ## Step 2 — Set up Postman local workspace
@@ -52,7 +52,7 @@ node run_pipeline.js --schemas=schemas/ --output=output/
 Optional flags:
 
 ```bash
-node run_pipeline.js --schemas=schemas/ --output=output/ --python=/path/to/python3
+node run_pipeline.js --schemas=schemas/ --output=output/ --python=/path/to/python
 node run_pipeline.js --schemas=schemas/ --output=output/ --fetch-remote
 ```
 
@@ -66,6 +66,7 @@ Exit code **0** = success. After the run, refresh the Postman Local view.
 - `output/` — generated XML files and Postman collection JSON (intermediate, not used directly)
 - `postman/` — Postman Local mode reads from here directly; contains request YAMLs, collection assets, and the local environment file (`baseurl`, `validationUrl`)
 - `AGENTS.md` — instructions for the agent (pipeline steps, rules, and final checklist)
+- `config.json` — type-level default values used during XML generation
 
 In **Local mode**, Postman watches the folder on disk — after each pipeline run, just refresh the Local view and updated requests appear without any re-import.
 
@@ -73,7 +74,9 @@ In **Local mode**, Postman watches the folder on disk — after each pipeline ru
 
 Edit `generate_xml.js` to change how sample XML is built.
 
-To override field values without touching the generator, add a JSON file at `sample_values/<path>/<Name>.json`:
+**Type-level defaults** (e.g. what value to use for `xs:date`, `xs:boolean`) are configured in `config.json` at the repo root under the `typeDefaults` key — edit there instead of touching the generator.
+
+To override field values for a specific XSD without touching either, add a JSON file at `sample_values/<path>/<Name>.json`:
 
 ```json
 {

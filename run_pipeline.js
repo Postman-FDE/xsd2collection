@@ -11,12 +11,12 @@
  *      and write postman/environments/local.environment.yaml.
  *
  * Usage:
- *   node run_pipeline.js --schemas=<schemas-root> --output=<output-root> [--python=python3] [--fetch-remote]
+ *   node run_pipeline.js --schemas=<schemas-root> --output=<output-root> [--python=python] [--fetch-remote]
  *
  * Flags:
  *   --schemas       Root directory containing schema subdirectories (required)
  *   --output        Root directory for generated output files (required)
- *   --python        Python executable used for validation (default: python3)
+ *   --python        Python executable used for validation (default: python)
  *   --fetch-remote  Pass through to generate_xml.js to allow fetching remote schemaLocation URLs
  *
  * Exit codes:
@@ -41,17 +41,17 @@ const schemasArg = getArg('--schemas');
 const outputArg = getArg('--output');
 
 if (!schemasArg || !outputArg) {
-  console.error('Usage: node run_pipeline.js --schemas=<schemas-root> --output=<output-root> [--python=python3] [--fetch-remote]');
+  console.error('Usage: node run_pipeline.js --schemas=<schemas-root> --output=<output-root> [--python=python] [--fetch-remote]');
   console.error('  --schemas   Root directory containing schema subdirectories (required)');
   console.error('  --output    Root directory for output XML files (required)');
-  console.error('  --python    Python executable to use for validation (default: python3)');
+  console.error('  --python    Python executable to use for validation (default: python)');
   console.error('  --fetch-remote  Pass through to generate_xml.js');
   process.exit(1);
 }
 
 const SCHEMAS_ROOT = path.resolve(schemasArg);
 const OUTPUT_ROOT = path.resolve(outputArg);
-const PYTHON = getArg('--python') || 'python3';
+const PYTHON = getArg('--python') || 'python';
 const FETCH_REMOTE = process.argv.includes('--fetch-remote');
 const GENERATE_SCRIPT = path.join(__dirname, 'generate_xml.js');
 const VALIDATE_SCRIPT = path.join(__dirname, 'validation_server', 'validate.py');

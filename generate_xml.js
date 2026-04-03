@@ -23,6 +23,9 @@
 const fs = require('fs');
 const path = require('path');
 
+const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf-8'));
+const TYPE_DEFAULTS = config.typeDefaults || {};
+
 // ============================================================
 // Configuration
 // ============================================================
@@ -503,24 +506,8 @@ function buildTypeModel(order) {
 
 function getDefaultValue(typeName) {
   if (!typeName) return '';
-  // Strip xs: or xsd: prefix
   const local = typeName.replace(/^(xs|xsd):/, '');
-  switch (local) {
-    case 'string': return '';
-    case 'int': case 'integer': case 'long': case 'short': case 'byte':
-    case 'unsignedInt': case 'unsignedLong': case 'unsignedShort': case 'unsignedByte':
-    case 'positiveInteger': case 'negativeInteger': case 'nonNegativeInteger': case 'nonPositiveInteger':
-      return '0';
-    case 'decimal': case 'float': case 'double': return '0.0';
-    case 'boolean': return 'false';
-    case 'dateTime': return '2024-01-01T00:00:00';
-    case 'date': return '2024-01-01';
-    case 'time': return '00:00:00';
-    case 'NMTOKENS': case 'NMTOKEN': case 'token': case 'normalizedString': return '';
-    case 'anyURI': return '';
-    case 'base64Binary': case 'hexBinary': return '';
-    default: return '';
-  }
+  return Object.prototype.hasOwnProperty.call(TYPE_DEFAULTS, local) ? TYPE_DEFAULTS[local] : '';
 }
 
 function isXsType(typeName) {
