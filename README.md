@@ -35,8 +35,6 @@ This repo uses Postman's **Native Git** (Local mode), available in Postman deskt
 
 After this one-time setup, the workspace stays connected to the repo. Switching git branches updates the collections automatically.
 
-> **Important:** grant Postman **full folder access** to the repo root when prompted (on macOS, via System Settings → Privacy & Security → Files and Folders if needed). Without this, Postman cannot read the collection YAMLs, environments, or the pre-request scripts.
-
 ## Step 3 — Generate collections
 
 ### Agent mode
