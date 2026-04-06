@@ -25,21 +25,24 @@ python validation_server/file_server.py
 
 ## Step 2 — Set up Postman local workspace
 
-This repo uses Postman's **Native Git** (Local mode), available in Postman desktop v12+ on a team workspace.
+This repo uses Postman's **Native Git** (Local mode), available in Postman desktop v12+ on a team workspace. Connecting Postman to the local filesystem also gives the Postman Agent access to all files — including `AGENTS.md` — without copying or attaching anything manually.
 
-1. Open (or create) a **team workspace** in the Postman desktop app — Native Git is not available on personal workspaces.
-2. Click **Open Folder** in the left sidebar (or **Connect Git** in the footer bar).
-3. In the file picker, select the **root of this cloned repo** and click **Connect**. Postman will use the existing `postman/` folder in the repo.
-4. In the footer bar, click the branch name and select **Switch to Local**. You are now in Local mode — Postman reads collections and environments directly from disk.
-5. Select `postman/environments/local.environment.yaml` as the active environment.
+1. Create a new local folder, copy all the files from this repo into it, and initialize it as a git repository (`git init`).
+2. Open (or create) a **team workspace** in the Postman desktop app — Native Git is not available on personal workspaces.
+3. Click **Connect Git** in the bottom-left corner of the app and select the folder. If it is not yet a git repository, click **Initialize as Git Repository** and add your remote workspace URL when prompted.
+4. Once connected, the **Files** tab in Postman will show all the repo files.
+5. In the footer bar, click the branch name and select **Switch to Local**. Postman now reads collections and environments directly from disk.
+6. Select `postman/environments/local.environment.yaml` as the active environment.
 
 After this one-time setup, the workspace stays connected to the repo. Switching git branches updates the collections automatically.
+
+> **Important:** grant Postman **full folder access** to the repo root when prompted (on macOS, via System Settings → Privacy & Security → Files and Folders if needed). Without this, Postman cannot read the collection YAMLs, environments, or the pre-request scripts.
 
 ## Step 3 — Generate collections
 
 ### Agent mode
 
-Tell the agent to generate — Agent mode can read instructions from [AGENTS.md](./AGENTS.md) automatically. It will run the pipeline and confirm the checklist.
+Once the local workspace is set up (Step 2), the Postman Agent already has access to all files. Type a generate command in the agent — it will read `AGENTS.md` for instructions, run the pipeline, and confirm the checklist. No need to attach or copy `AGENTS.md` manually.
 
 ### Manual run
 
