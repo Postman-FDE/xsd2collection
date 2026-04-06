@@ -60,7 +60,6 @@ Exit code **0** = success. After the run, refresh the Postman Local view.
 
 ## Where things live
 
-
 - `schemas/` — your XSD source files, organized in subdirectories
 - `sample_values/` — optional per-field value overrides for XML generation (see [XML generation](#xml-generation))
 - `output/` — generated XML files and Postman collection JSON (intermediate, not used directly)
