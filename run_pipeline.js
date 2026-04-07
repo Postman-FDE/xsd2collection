@@ -51,7 +51,7 @@ if (!schemasArg || !outputArg) {
 
 const SCHEMAS_ROOT = path.resolve(schemasArg);
 const OUTPUT_ROOT = path.resolve(outputArg);
-const PYTHON = getArg('--python') || 'python3';
+const PYTHON = getArg('--python') || 'python';
 const FETCH_REMOTE = process.argv.includes('--fetch-remote');
 const GENERATE_SCRIPT = path.join(__dirname, 'generate_xml.js');
 const VALIDATE_SCRIPT = path.join(__dirname, 'validation_server', 'validate.py');

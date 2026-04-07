@@ -307,8 +307,9 @@ class SchemaModel {
     this.simpleTypes = new Map();       // name -> simpleType definition
     this.attributeGroups = new Map();   // name -> attributeGroup definition
     this.namespaces = new Map();        // prefix -> uri
-    this.fileElements = new Map();      // filePath -> [element names declared in that file]
+    this.fileElements = new Map();      // filePath -> [{name, node}] declared in that file
     this.fileTargetNs = new Map();      // filePath -> targetNamespace
+    this.fileFormDefault = new Map();   // filePath -> 'qualified' | 'unqualified'
   }
 }
 
@@ -456,6 +457,7 @@ function buildTypeModel(order) {
     const schemaNode = getSchemaNode(doc);
     const targetNs = schemaNode.attr('targetNamespace') || '';
     model.fileTargetNs.set(filePath, targetNs);
+    model.fileFormDefault.set(filePath, schemaNode.attr('elementFormDefault') || 'unqualified');
     
     if (!model.fileElements.has(filePath)) {
       model.fileElements.set(filePath, []);
@@ -476,7 +478,7 @@ function buildTypeModel(order) {
         const name = child.attr('name');
         if (name) {
           model.globalElements.set(name, { node: child, filePath, targetNs });
-          model.fileElements.get(filePath).push(name);
+          model.fileElements.get(filePath).push({ name, node: child });
         }
       } else if (child.localName === 'complexType') {
         const name = child.attr('name');
@@ -512,7 +514,10 @@ function getDefaultValue(typeName) {
 
 function isXsType(typeName) {
   if (!typeName) return false;
-  return typeName.startsWith('xs:') || typeName.startsWith('xsd:');
+  if (typeName.startsWith('xs:') || typeName.startsWith('xsd:')) return true;
+  // Unprefixed built-in type — used when XSD namespace is the default namespace
+  if (!typeName.includes(':')) return Object.prototype.hasOwnProperty.call(TYPE_DEFAULTS, typeName);
+  return false;
 }
 
 // ============================================================
@@ -581,33 +586,23 @@ class XmlGenerator {
     const targetNs = schemaNode.attr('targetNamespace') || '';
     const elementFormDefault = schemaNode.attr('elementFormDefault') || 'unqualified';
     
-    // Find root element: first global xs:element in this file's targetNamespace
+    // Use first element declared directly in this file — avoids collisions when multiple
+    // files declare a global element with the same name (globalElements gets overwritten).
     const fileElems = this.model.fileElements.get(filePath) || [];
-    
-    let rootElemName = null;
-    let rootElemDef = null;
-    
-    for (const elemName of fileElems) {
-      const def = this.model.globalElements.get(elemName);
-      if (def && def.filePath === filePath) {
-        rootElemName = elemName;
-        rootElemDef = def;
-        break;
-      }
-    }
-    
+    const rootElem = fileElems[0] || null;
+    const rootElemName = rootElem ? rootElem.name : null;
+    const rootElemNode = rootElem ? rootElem.node : null;
+
     if (!rootElemName) {
-      // Fallback: use <Root>
       warn(`No global element found in ${path.basename(filePath)}, using <Root> fallback`);
-      rootElemName = 'Root';
     }
-    
+
     this.lines = [];
     this.indent = 0;
     this.importedNsPrefixes = new Map();
     this.nsCounter = 0;
     this.sampleValues = loadSampleValues(filePath);
-    
+
     // Collect imported namespaces
     const imports = schemaNode.getChildren('import');
     for (const imp of imports) {
@@ -617,13 +612,12 @@ class XmlGenerator {
         this.importedNsPrefixes.set(ns, `ns${this.nsCounter}`);
       }
     }
-    
+
     this.lines.push('<?xml version="1.0" encoding="UTF-8"?>');
-    
-    if (rootElemDef) {
-      this.generateElement(rootElemDef.node, rootElemName, targetNs, true, elementFormDefault);
+
+    if (rootElemNode) {
+      this.generateElement(rootElemNode, rootElemName, targetNs, true, elementFormDefault);
     } else {
-      // Fallback Root
       this.lines.push(`<Root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>`);
     }
     
@@ -634,15 +628,20 @@ class XmlGenerator {
     return '  '.repeat(this.indent);
   }
   
-  generateElement(elemNode, elemName, targetNs, isRoot, elementFormDefault) {
+  // isGlobal: true for global element refs (always namespace-qualified regardless of elementFormDefault)
+  generateElement(elemNode, elemName, targetNs, isRoot, elementFormDefault, isGlobal = false) {
     const ind = this.getIndent();
-    
-    // Build attributes
+
+    // Apply ns0: prefix when: root element, global ref, or local element in a qualified schema
     let attrs = '';
-    
+    let tagName = elemName;
+    if (targetNs && (isRoot || isGlobal || elementFormDefault === 'qualified')) {
+      tagName = `ns0:${elemName}`;
+    }
+
     if (isRoot) {
       if (targetNs) {
-        attrs += ` xmlns="${targetNs}"`;
+        attrs += ` xmlns:ns0="${targetNs}"`;
       }
       attrs += ` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`;
       for (const [ns, prefix] of this.importedNsPrefixes) {
@@ -655,13 +654,16 @@ class XmlGenerator {
     const ref = elemNode.attr('ref');
     
     if (ref) {
-      // Element reference - look up the global element
-      const refName = ref.includes(':') ? ref.split(':')[1] : ref;
-      const refDef = this.model.globalElements.get(refName);
+      // Global element refs are always namespace-qualified.
+      // Use the ref'd file's elementFormDefault so its child elements are qualified correctly.
+      const refLocalName = ref.includes(':') ? ref.split(':')[1] : ref;
+      const refDef = this.model.globalElements.get(refLocalName);
       if (refDef) {
-        this.generateElement(refDef.node, refName, targetNs, false, elementFormDefault);
+        const refFormDefault = this.model.fileFormDefault.get(refDef.filePath) || elementFormDefault;
+        this.generateElement(refDef.node, refLocalName, targetNs, false, refFormDefault, true);
       } else {
-        this.lines.push(`${ind}<${refName}/>`);
+        const refTag = targetNs ? `ns0:${refLocalName}` : refLocalName;
+        this.lines.push(`${ind}<${refTag}/>`);
         warn(`Cannot resolve element ref: ${ref}`);
       }
       return;
@@ -684,7 +686,7 @@ class XmlGenerator {
       const defaultVal = elemNode.attr('default');
       const sv = this.getSampleValue(elemName, typeName);
       const value = fixedVal || defaultVal || sv || getDefaultValue(typeName) || elemName;
-      this.lines.push(`${ind}<${elemName}${attrs}>${this.escapeXml(value)}</${elemName}>`);
+      this.lines.push(`${ind}<${tagName}${attrs}>${this.escapeXml(value)}</${tagName}>`);
       return;
     } else if (typeName && !isXsType(typeName)) {
       // Named type reference
@@ -702,7 +704,7 @@ class XmlGenerator {
       } else if (simpleDef) {
         const sv = this.getSampleValue(elemName, null);
         const value = sv || this.processSimpleType(simpleDef.node);
-        this.lines.push(`${ind}<${elemName}${attrs}>${this.escapeXml(value)}</${elemName}>`);
+        this.lines.push(`${ind}<${tagName}${attrs}>${this.escapeXml(value)}</${tagName}>`);
         return;
       } else {
         // Unknown type
@@ -711,9 +713,9 @@ class XmlGenerator {
         const sv = this.getSampleValue(elemName, null);
         const value = fixedVal || defaultVal || sv || '';
         if (value) {
-          this.lines.push(`${ind}<${elemName}${attrs}>${this.escapeXml(value)}</${elemName}>`);
+          this.lines.push(`${ind}<${tagName}${attrs}>${this.escapeXml(value)}</${tagName}>`);
         } else {
-          this.lines.push(`${ind}<${elemName}${attrs}/>`);
+          this.lines.push(`${ind}<${tagName}${attrs}/>`);
         }
         warn(`Cannot resolve type: ${typeName}`);
         return;
@@ -728,7 +730,7 @@ class XmlGenerator {
     } else if (simpleTypeChild) {
       const sv = this.getSampleValue(elemName, null);
       const value = sv || this.processSimpleType(simpleTypeChild);
-      this.lines.push(`${ind}<${elemName}${attrs}>${this.escapeXml(value)}</${elemName}>`);
+      this.lines.push(`${ind}<${tagName}${attrs}>${this.escapeXml(value)}</${tagName}>`);
       return;
     } else {
       // No type info - empty element
@@ -737,9 +739,9 @@ class XmlGenerator {
       const sv = this.getSampleValue(elemName, null);
       const value = fixedVal || defaultVal || sv || '';
       if (value) {
-        this.lines.push(`${ind}<${elemName}${attrs}>${this.escapeXml(value)}</${elemName}>`);
+        this.lines.push(`${ind}<${tagName}${attrs}>${this.escapeXml(value)}</${tagName}>`);
       } else {
-        this.lines.push(`${ind}<${elemName}${attrs}/>`);
+        this.lines.push(`${ind}<${tagName}${attrs}/>`);
       }
       return;
     }
@@ -753,17 +755,17 @@ class XmlGenerator {
     if (textContent !== null) {
       const sv = this.getSampleValue(elemName, textContentType);
       const finalText = sv !== null ? sv : textContent;
-      this.lines.push(`${ind}<${elemName}${attrStr}>${this.escapeXml(finalText)}</${elemName}>`);
+      this.lines.push(`${ind}<${tagName}${attrStr}>${this.escapeXml(finalText)}</${tagName}>`);
     } else if (hasChildren) {
-      this.lines.push(`${ind}<${elemName}${attrStr}>`);
+      this.lines.push(`${ind}<${tagName}${attrStr}>`);
       this.indent++;
       for (const childFn of childContent) {
         childFn();
       }
       this.indent--;
-      this.lines.push(`${ind}</${elemName}>`);
+      this.lines.push(`${ind}</${tagName}>`);
     } else {
-      this.lines.push(`${ind}<${elemName}${attrStr}/>`);
+      this.lines.push(`${ind}<${tagName}${attrStr}/>`);
     }
   }
   
@@ -934,12 +936,14 @@ class XmlGenerator {
           
           if (ref) {
             children.push(() => {
-              const refName = ref.includes(':') ? ref.split(':')[1] : ref;
-              const refDef = this.model.globalElements.get(refName);
+              const refLocalName = ref.includes(':') ? ref.split(':')[1] : ref;
+              const refDef = this.model.globalElements.get(refLocalName);
               if (refDef) {
-                this.generateElement(refDef.node, refName, targetNs, false, elementFormDefault);
+                const refFormDefault = this.model.fileFormDefault.get(refDef.filePath) || elementFormDefault;
+                this.generateElement(refDef.node, refLocalName, targetNs, false, refFormDefault, true);
               } else {
-                this.lines.push(`${this.getIndent()}<${refName}/>`);
+                const refTag = targetNs ? `ns0:${refLocalName}` : refLocalName;
+                this.lines.push(`${this.getIndent()}<${refTag}/>`);
                 warn(`Cannot resolve element ref: ${ref}`);
               }
             });
@@ -983,12 +987,14 @@ class XmlGenerator {
         
         if (ref) {
           children.push(() => {
-            const refName = ref.includes(':') ? ref.split(':')[1] : ref;
-            const refDef = this.model.globalElements.get(refName);
+            const refLocalName = ref.includes(':') ? ref.split(':')[1] : ref;
+            const refDef = this.model.globalElements.get(refLocalName);
             if (refDef) {
-              this.generateElement(refDef.node, refName, targetNs, false, elementFormDefault);
+              const refFormDefault = this.model.fileFormDefault.get(refDef.filePath) || elementFormDefault;
+              this.generateElement(refDef.node, refLocalName, targetNs, false, refFormDefault, true);
             } else {
-              this.lines.push(`${this.getIndent()}<${refName}/>`);
+              const refTag = targetNs ? `ns0:${refLocalName}` : refLocalName;
+              this.lines.push(`${this.getIndent()}<${refTag}/>`);
             }
           });
         } else if (elemName) {
