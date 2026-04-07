@@ -51,7 +51,7 @@ if (!schemasArg || !outputArg) {
 
 const SCHEMAS_ROOT = path.resolve(schemasArg);
 const OUTPUT_ROOT = path.resolve(outputArg);
-const PYTHON = getArg('--python') || 'python';
+const PYTHON = getArg('--python') || 'python3';
 const FETCH_REMOTE = process.argv.includes('--fetch-remote');
 const GENERATE_SCRIPT = path.join(__dirname, 'generate_xml.js');
 const VALIDATE_SCRIPT = path.join(__dirname, 'validation_server', 'validate.py');
@@ -102,6 +102,39 @@ function validate(xsdPath, xmlPath) {
 // Postman Collection Builder
 // ============================================================
 
+const PRE_REQUEST_SCRIPT = [
+  "const xmlBody = pm.request.body.toString();",
+  "",
+  "const validationResult = await new Promise((resolve, reject) => {",
+  "  pm.sendRequest({",
+  "    url: pm.variables.replaceIn('{{validationUrl}}') + pm.request.url.getPath(),",
+  "    method: 'POST',",
+  "    header: {",
+  "      'Content-Type': 'application/xml'",
+  "    },",
+  "    body: {",
+  "      mode: 'raw',",
+  "      raw: xmlBody",
+  "    }",
+  "  }, function (err, response) {",
+  "    if (err) {",
+  "      reject(err);",
+  "      return;",
+  "    }",
+  "    resolve(response.json());",
+  "  });",
+  "});",
+  "",
+  "console.log('Validation result:', JSON.stringify(validationResult, null, 2));",
+  "",
+  "if (!validationResult.valid) {",
+  "  console.error('❌ XSD Validation failed: ' + validationResult.message);",
+  "  throw new Error('XSD Validation failed: ' + validationResult.message);",
+  "} else {",
+  "  console.log('✅ XSD validation passed, proceeding with request...');",
+  "}",
+];
+
 function buildPostmanCollection(name, requests) {
   return {
     info: {
@@ -110,6 +143,15 @@ function buildPostmanCollection(name, requests) {
     },
     item: requests.map(({ requestName, url, xmlBody }) => ({
       name: requestName,
+      event: [
+        {
+          listen: 'prerequest',
+          script: {
+            type: 'text/javascript',
+            exec: PRE_REQUEST_SCRIPT,
+          },
+        },
+      ],
       request: {
         method: 'POST',
         header: [{ key: 'Content-Type', value: 'application/xml' }],
