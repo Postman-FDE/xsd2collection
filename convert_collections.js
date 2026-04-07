@@ -152,7 +152,7 @@ for (const collFile of collectionFiles) {
       lines.push('  - type: beforeRequest');
       lines.push('    code: |-');
       for (const sl of scriptLines) {
-        lines.push('    ' + sl);
+        lines.push('      ' + sl);
       }
       lines.push('    language: text/javascript');
     }
