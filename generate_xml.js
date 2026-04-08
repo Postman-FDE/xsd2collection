@@ -602,6 +602,10 @@ class XmlGenerator {
     this.importedNsPrefixes = new Map();
     this.nsCounter = 0;
     this.sampleValues = loadSampleValues(filePath);
+    // Root file's elementFormDefault: controls whether the root element declares
+    // xmlns="..." (qualified) or xmlns:ns0="..." (unqualified). Used to decide
+    // whether global refs need the ns0: prefix.
+    this.rootElementFormDefault = elementFormDefault;
 
     // Collect imported namespaces
     const imports = schemaNode.getChildren('import');
@@ -632,16 +636,28 @@ class XmlGenerator {
   generateElement(elemNode, elemName, targetNs, isRoot, elementFormDefault, isGlobal = false) {
     const ind = this.getIndent();
 
-    // Apply ns0: prefix when: root element, global ref, or local element in a qualified schema
+    // Two namespace styles depending on the root file's elementFormDefault:
+    //
+    // Qualified root (xmlns="targetNs" on root):
+    //   → No element needs an explicit prefix; default ns covers everything.
+    //
+    // Unqualified root (xmlns:ns0="targetNs" on root):
+    //   → Root, global refs, and elements from included/qualified schemas get ns0:.
+    //   → Local elements in unqualified schemas get no prefix.
     let attrs = '';
     let tagName = elemName;
-    if (targetNs && (isRoot || isGlobal || elementFormDefault === 'qualified')) {
+    if (targetNs && this.rootElementFormDefault !== 'qualified' &&
+        (isRoot || isGlobal || elementFormDefault === 'qualified')) {
       tagName = `ns0:${elemName}`;
     }
 
     if (isRoot) {
       if (targetNs) {
-        attrs += ` xmlns:ns0="${targetNs}"`;
+        if (this.rootElementFormDefault === 'qualified') {
+          attrs += ` xmlns="${targetNs}"`;
+        } else {
+          attrs += ` xmlns:ns0="${targetNs}"`;
+        }
       }
       attrs += ` xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`;
       for (const [ns, prefix] of this.importedNsPrefixes) {
@@ -662,7 +678,7 @@ class XmlGenerator {
         const refFormDefault = this.model.fileFormDefault.get(refDef.filePath) || elementFormDefault;
         this.generateElement(refDef.node, refLocalName, targetNs, false, refFormDefault, true);
       } else {
-        const refTag = targetNs ? `ns0:${refLocalName}` : refLocalName;
+        const refTag = (targetNs && this.rootElementFormDefault !== 'qualified') ? `ns0:${refLocalName}` : refLocalName;
         this.lines.push(`${ind}<${refTag}/>`);
         warn(`Cannot resolve element ref: ${ref}`);
       }
@@ -942,7 +958,7 @@ class XmlGenerator {
                 const refFormDefault = this.model.fileFormDefault.get(refDef.filePath) || elementFormDefault;
                 this.generateElement(refDef.node, refLocalName, targetNs, false, refFormDefault, true);
               } else {
-                const refTag = targetNs ? `ns0:${refLocalName}` : refLocalName;
+                const refTag = (targetNs && this.rootElementFormDefault !== 'qualified') ? `ns0:${refLocalName}` : refLocalName;
                 this.lines.push(`${this.getIndent()}<${refTag}/>`);
                 warn(`Cannot resolve element ref: ${ref}`);
               }
@@ -993,7 +1009,7 @@ class XmlGenerator {
               const refFormDefault = this.model.fileFormDefault.get(refDef.filePath) || elementFormDefault;
               this.generateElement(refDef.node, refLocalName, targetNs, false, refFormDefault, true);
             } else {
-              const refTag = targetNs ? `ns0:${refLocalName}` : refLocalName;
+              const refTag = (targetNs && this.rootElementFormDefault !== 'qualified') ? `ns0:${refLocalName}` : refLocalName;
               this.lines.push(`${this.getIndent()}<${refTag}/>`);
             }
           });

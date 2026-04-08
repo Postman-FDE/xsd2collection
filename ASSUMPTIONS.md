@@ -72,13 +72,29 @@ Multiple XSD files declaring a global element with the same name do not conflict
 
 ## 12. Namespace handling
 
-- If the schema has a `targetNamespace`, the root element is emitted as `<ns0:RootElem xmlns:ns0="...">`.
-- Imported namespaces get auto-generated prefixes (`ns1`, `ns2`, …) declared on the root element.
-- `elementFormDefault` is fully respected per the XSD file in which each element is declared:
-  - **`qualified`** — all locally declared elements in that file get the `ns0:` prefix.
-  - **`unqualified`** (default) — locally declared elements have no namespace prefix; only global elements and refs get `ns0:`.
-- When a schema includes another file with a different `elementFormDefault`, the included file's setting applies to its own elements. For example, including a `qualified` file inside an `unqualified` host correctly qualifies the included file's local elements while leaving the host file's local elements unqualified.
-- Global element references (`ref="..."`) are always namespace-qualified with `ns0:`, regardless of `elementFormDefault`.
+The **root file's** `elementFormDefault` determines the namespace style for the entire generated document.
+
+### Qualified root (`elementFormDefault="qualified"` on the root XSD file)
+
+- Root element declares a **default namespace**: `<RootElem xmlns="targetNamespace" …>`.
+- No element in the document carries an explicit prefix — all elements (root, children, and global refs) are covered by the inherited default namespace.
+
+### Unqualified root (`elementFormDefault="unqualified"`, or not set — the default)
+
+- Root element declares a **prefixed namespace**: `<ns0:RootElem xmlns:ns0="targetNamespace" …>`.
+- Elements that require namespace qualification get the `ns0:` prefix:
+  - The root element itself.
+  - Global element references (`ref="…"`), always.
+  - Local elements declared in an **included** file whose own `elementFormDefault` is `qualified`.
+- Local elements declared in an unqualified file carry no prefix.
+
+### No `targetNamespace`
+
+- No namespace declarations or prefixes are emitted on any element.
+
+### Imported namespaces
+
+- Each distinct imported namespace gets an auto-generated prefix (`ns1`, `ns2`, …) declared on the root element, regardless of the root's `elementFormDefault`.
 
 ## 13. Pipeline validation vs. server validation
 
