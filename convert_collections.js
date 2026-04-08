@@ -164,7 +164,7 @@ for (const collFile of collectionFiles) {
   }
 
   totalCollections++;
-  console.log(`  ✅ ${collName}: ${items.length} request(s) → ${destDir}`);
+  console.log(`  [OK] ${collName}: ${items.length} request(s) -> ${destDir}`);
 }
 
 // Write Postman environment with validationUrl
@@ -181,6 +181,6 @@ const envYaml = [
   '    enabled: true',
 ].join('\n') + '\n';
 fs.writeFileSync(path.join(ENVIRONMENTS_DIR, 'local.environment.yaml'), envYaml, 'utf-8');
-console.log('  ✅ Environment written → postman/environments/local.environment.yaml');
+console.log('  [OK] Environment written -> postman/environments/local.environment.yaml');
 
 console.log(`\nDone. ${totalCollections} collection(s), ${totalRequests} request file(s) written.`);

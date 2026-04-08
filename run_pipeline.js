@@ -94,7 +94,7 @@ function run(cmd, args, label) {
 function validate(xsdPath, xmlPath) {
   const result = spawnSync(PYTHON, [VALIDATE_SCRIPT, xsdPath, xmlPath], { encoding: 'utf-8' });
   const output = (result.stdout || '') + (result.stderr || '');
-  const valid = (result.status === 0) && output.includes('✅');
+  const valid = (result.status === 0) && output.includes('VALID: XML is valid');
   return { valid, output: output.trim() };
 }
 
@@ -128,10 +128,10 @@ const PRE_REQUEST_SCRIPT = [
   "console.log('Validation result:', JSON.stringify(validationResult, null, 2));",
   "",
   "if (!validationResult.valid) {",
-  "  console.error('❌ XSD Validation failed: ' + validationResult.message);",
+  "  console.error('[FAIL] XSD Validation failed: ' + validationResult.message);",
   "  throw new Error('XSD Validation failed: ' + validationResult.message);",
   "} else {",
-  "  console.log('✅ XSD validation passed, proceeding with request...');",
+  "  console.log('[OK] XSD validation passed, proceeding with request...');",
   "}",
 ];
 
@@ -250,7 +250,7 @@ for (const xsdDir of xsdDirs) {
     }
 
     const { valid, output } = validate(xsdPath, xmlPath);
-    const icon = valid ? '✅' : '❌';
+    const icon = valid ? '[OK]' : '[FAIL]';
     console.log(`  ${icon} ${xmlFile}`);
     if (!valid) {
       console.log(`     ${output}`);
