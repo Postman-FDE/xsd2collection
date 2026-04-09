@@ -102,38 +102,40 @@ function validate(xsdPath, xmlPath) {
 // Postman Collection Builder
 // ============================================================
 
-const PRE_REQUEST_SCRIPT = [
-  "const xmlBody = pm.request.body.toString();",
-  "",
-  "const validationResult = await new Promise((resolve, reject) => {",
-  "  pm.sendRequest({",
-  "    url: pm.variables.replaceIn('{{validationUrl}}') + pm.request.url.getPath(),",
-  "    method: 'POST',",
-  "    header: {",
-  "      'Content-Type': 'application/xml'",
-  "    },",
-  "    body: {",
-  "      mode: 'raw',",
-  "      raw: xmlBody",
-  "    }",
-  "  }, function (err, response) {",
-  "    if (err) {",
-  "      reject(err);",
-  "      return;",
-  "    }",
-  "    resolve(response.json());",
-  "  });",
-  "});",
-  "",
-  "console.log('Validation result:', JSON.stringify(validationResult, null, 2));",
-  "",
-  "if (!validationResult.valid) {",
-  "  console.error('[FAIL] XSD Validation failed: ' + validationResult.message);",
-  "  throw new Error('XSD Validation failed: ' + validationResult.message);",
-  "} else {",
-  "  console.log('[OK] XSD validation passed, proceeding with request...');",
-  "}",
-];
+function buildPreRequestScript(urlPath) {
+  return [
+    "const xmlBody = pm.request.body.toString();",
+    "",
+    "const validationResult = await new Promise((resolve, reject) => {",
+    "  pm.sendRequest({",
+    `    url: pm.variables.replaceIn('{{validationUrl}}') + '${urlPath}',`,
+    "    method: 'POST',",
+    "    header: {",
+    "      'Content-Type': 'application/xml'",
+    "    },",
+    "    body: {",
+    "      mode: 'raw',",
+    "      raw: xmlBody",
+    "    }",
+    "  }, function (err, response) {",
+    "    if (err) {",
+    "      reject(err);",
+    "      return;",
+    "    }",
+    "    resolve(response.json());",
+    "  });",
+    "});",
+    "",
+    "console.log('Validation result:', JSON.stringify(validationResult, null, 2));",
+    "",
+    "if (!validationResult.valid) {",
+    "  console.error('[FAIL] XSD Validation failed: ' + validationResult.message);",
+    "  throw new Error('XSD Validation failed: ' + validationResult.message);",
+    "} else {",
+    "  console.log('[OK] XSD validation passed, proceeding with request...');",
+    "}",
+  ];
+}
 
 function buildPostmanCollection(name, requests) {
   return {
@@ -141,33 +143,36 @@ function buildPostmanCollection(name, requests) {
       name,
       schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
     },
-    item: requests.map(({ requestName, url, xmlBody }) => ({
-      name: requestName,
-      event: [
-        {
-          listen: 'prerequest',
-          script: {
-            type: 'text/javascript',
-            exec: PRE_REQUEST_SCRIPT,
+    item: requests.map(({ requestName, url, xmlBody }) => {
+      const urlPath = '/' + url.replace('{{baseurl}}/', '');
+      return {
+        name: requestName,
+        event: [
+          {
+            listen: 'prerequest',
+            script: {
+              type: 'text/javascript',
+              exec: buildPreRequestScript(urlPath),
+            },
+          },
+        ],
+        request: {
+          method: 'POST',
+          header: [{ key: 'Content-Type', value: 'application/xml' }],
+          body: {
+            mode: 'raw',
+            raw: xmlBody,
+            options: { raw: { language: 'xml' } },
+          },
+          url: {
+            raw: url,
+            host: ['{{baseurl}}'],
+            path: url.replace('{{baseurl}}/', '').split('/'),
           },
         },
-      ],
-      request: {
-        method: 'POST',
-        header: [{ key: 'Content-Type', value: 'application/xml' }],
-        body: {
-          mode: 'raw',
-          raw: xmlBody,
-          options: { raw: { language: 'xml' } },
-        },
-        url: {
-          raw: url,
-          host: ['{{baseurl}}'],
-          path: url.replace('{{baseurl}}/', '').split('/'),
-        },
-      },
-      response: [],
-    })),
+        response: [],
+      };
+    }),
   };
 }
 
