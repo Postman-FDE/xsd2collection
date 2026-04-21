@@ -137,6 +137,26 @@ function buildPreRequestScript(urlPath) {
   ];
 }
 
+function buildPostRequestTestScript() {
+  return [
+    'pm.test("Status code is 200", function () {',
+    '    pm.response.to.have.status(200);',
+    '});',
+  ];
+}
+
+function buildOk200Example(originalRequest) {
+  return {
+    name: '200 OK',
+    originalRequest,
+    status: 'OK',
+    code: 200,
+    _postman_previewlanguage: 'xml',
+    header: [{ key: 'Content-Type', value: 'application/xml' }],
+    cookie: [],
+  };
+}
+
 function buildPostmanCollection(name, requests) {
   return {
     info: {
@@ -145,6 +165,20 @@ function buildPostmanCollection(name, requests) {
     },
     item: requests.map(({ requestName, url, xmlBody }) => {
       const urlPath = '/' + url.replace('{{baseurl}}/', '');
+      const request = {
+        method: 'POST',
+        header: [{ key: 'Content-Type', value: 'application/xml' }],
+        body: {
+          mode: 'raw',
+          raw: xmlBody,
+          options: { raw: { language: 'xml' } },
+        },
+        url: {
+          raw: url,
+          host: ['{{baseurl}}'],
+          path: url.replace('{{baseurl}}/', '').split('/'),
+        },
+      };
       return {
         name: requestName,
         event: [
@@ -155,22 +189,16 @@ function buildPostmanCollection(name, requests) {
               exec: buildPreRequestScript(urlPath),
             },
           },
+          {
+            listen: 'test',
+            script: {
+              type: 'text/javascript',
+              exec: buildPostRequestTestScript(),
+            },
+          },
         ],
-        request: {
-          method: 'POST',
-          header: [{ key: 'Content-Type', value: 'application/xml' }],
-          body: {
-            mode: 'raw',
-            raw: xmlBody,
-            options: { raw: { language: 'xml' } },
-          },
-          url: {
-            raw: url,
-            host: ['{{baseurl}}'],
-            path: url.replace('{{baseurl}}/', '').split('/'),
-          },
-        },
-        response: [],
+        request,
+        response: [buildOk200Example(JSON.parse(JSON.stringify(request)))],
       };
     }),
   };

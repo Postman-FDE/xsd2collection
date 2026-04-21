@@ -8,6 +8,10 @@
  *
  * Each request YAML embeds a beforeRequest script that calls the validation server
  * ({{validationUrl}}) to validate the XML body against its XSD before the request is sent.
+ * Saved response examples (v2.1 `item.response[]`) are written as Postman v3
+ * `$kind: http-example` files under `.resources/<request>.resources/examples/` and linked via
+ * `examples: ./.resources/<request>.resources/examples` (inline `response:` is not loaded by Local View).
+ * Test scripts (`listen: test`) are written as `type: afterResponse` under `scripts:`.
  *
  * Also writes postman/environments/local.environment.yaml with:
  *   - baseurl     — base URL for all requests (default: https://api.example.com)
@@ -52,6 +56,71 @@ function yamlVal(s) {
     return "'" + s.replace(/'/g, "''") + "'";
   }
   return s;
+}
+
+/** Map raw body language to http-example body type */
+function exampleBodyType(lang) {
+  const typeMap = { xml: 'xml', json: 'json', javascript: 'javascript', html: 'html', text: 'text' };
+  return typeMap[lang] || 'text';
+}
+
+/**
+ * Write one Postman v3 http-example file (matches `postman collection migrate` layout).
+ * https://schema — v2.1 item.response[] uses originalRequest + code/status/header/body.
+ */
+function writeHttpExampleFile(filePath, r, order) {
+  const lines = [];
+  lines.push('$kind: http-example');
+  const or = r.originalRequest;
+  if (or) {
+    lines.push('request:');
+    if (or.url && or.url.raw) lines.push(`  url: ${yamlVal(or.url.raw)}`);
+    if (or.method) lines.push(`  method: ${or.method}`);
+    if (or.header && or.header.length > 0) {
+      lines.push('  headers:');
+      for (const h of or.header) {
+        lines.push(`    ${h.key}: ${yamlVal(h.value)}`);
+      }
+    }
+    if (or.body && or.body.mode === 'raw' && or.body.raw != null) {
+      const lang = or.body.options && or.body.options.raw && or.body.options.raw.language
+        ? or.body.options.raw.language
+        : 'text';
+      const bodyType = exampleBodyType(lang);
+      lines.push('  body:');
+      lines.push(`    type: ${bodyType}`);
+      lines.push('    content: |-');
+      for (const bl of String(or.body.raw).split('\n')) {
+        lines.push('      ' + bl);
+      }
+    }
+  }
+  lines.push('response:');
+  lines.push(`  statusCode: ${r.code != null ? r.code : 200}`);
+  lines.push(`  statusText: ${yamlVal(r.status || 'OK')}`);
+  if (r.header && r.header.length > 0) {
+    lines.push('  headers:');
+    for (const h of r.header) {
+      lines.push(`    ${h.key}: ${yamlVal(h.value)}`);
+    }
+  } else {
+    lines.push('  headers: {}');
+  }
+  const respBody = r.body != null && r.body !== '' ? String(r.body) : '';
+  const preview = r._postman_previewlanguage || 'text';
+  const respType = respBody ? exampleBodyType(preview) : 'text';
+  lines.push('  body:');
+  lines.push(`    type: ${respType}`);
+  if (respBody.includes('\n')) {
+    lines.push('    content: |-');
+    for (const bl of respBody.split('\n')) {
+      lines.push('      ' + bl);
+    }
+  } else {
+    lines.push(`    content: ${respBody === '' ? '""' : yamlVal(respBody)}`);
+  }
+  lines.push(`order: ${order}`);
+  fs.writeFileSync(filePath, lines.join('\n') + '\n', 'utf-8');
 }
 
 // ── main ─────────────────────────────────────────────────────────
@@ -108,7 +177,6 @@ for (const collFile of collectionFiles) {
     }
     lines.push(`method: ${method}`);
     lines.push(`url: ${yamlVal(url)}`);
-    lines.push(`order: ${order}`);
 
     // Headers
     if (req.header && req.header.length > 0) {
@@ -142,20 +210,51 @@ for (const collFile of collectionFiles) {
       }
     }
 
-    // Pre-request script — sourced from the collection JSON's event, not hardcoded here
-    const preReqEvent = (item.event || []).find(e => e.listen === 'prerequest');
-    if (preReqEvent && preReqEvent.script && preReqEvent.script.exec) {
-      const scriptLines = Array.isArray(preReqEvent.script.exec)
-        ? preReqEvent.script.exec
-        : preReqEvent.script.exec.split('\n');
-      lines.push('scripts:');
-      lines.push('  - type: beforeRequest');
-      lines.push('    code: |-');
-      for (const sl of scriptLines) {
-        lines.push('      ' + sl);
+    if (item.response && item.response.length > 0) {
+      const examplesDir = path.join(destDir, '.resources', `${safeName}.resources`, 'examples');
+      fs.mkdirSync(examplesDir, { recursive: true });
+      for (const ex of item.response) {
+        const exLabel = ex.name || 'Example';
+        const exampleFileName = `${sanitize(exLabel)}.example.yaml`;
+        writeHttpExampleFile(path.join(examplesDir, exampleFileName), ex, order);
       }
-      lines.push('    language: text/javascript');
+      lines.push(`examples: ./.resources/${safeName}.resources/examples`);
     }
+
+    // Scripts — sourced from the collection JSON's `event` array (prerequest → beforeRequest, test → afterResponse)
+    const preReqEvent = (item.event || []).find(e => e.listen === 'prerequest');
+    const testEvent = (item.event || []).find(e => e.listen === 'test');
+
+    function scriptExecLines(ev) {
+      if (!ev || !ev.script || ev.script.exec == null) return null;
+      return Array.isArray(ev.script.exec)
+        ? ev.script.exec
+        : ev.script.exec.split('\n');
+    }
+
+    const preLines = scriptExecLines(preReqEvent);
+    const testLines = scriptExecLines(testEvent);
+    if (preLines || testLines) {
+      lines.push('scripts:');
+      if (preLines) {
+        lines.push('  - type: beforeRequest');
+        lines.push('    code: |-');
+        for (const sl of preLines) {
+          lines.push('      ' + sl);
+        }
+        lines.push('    language: text/javascript');
+      }
+      if (testLines) {
+        lines.push('  - type: afterResponse');
+        lines.push('    code: |-');
+        for (const sl of testLines) {
+          lines.push('      ' + sl);
+        }
+        lines.push('    language: text/javascript');
+      }
+    }
+
+    lines.push(`order: ${order}`);
 
     const yaml = lines.join('\n') + '\n';
     fs.writeFileSync(filePath, yaml, 'utf-8');
