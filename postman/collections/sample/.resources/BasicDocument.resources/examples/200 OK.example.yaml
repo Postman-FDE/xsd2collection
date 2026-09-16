@@ -1,0 +1,24 @@
+$kind: http-example
+request:
+  url: '{{baseurl}}/sample/BasicDocument'
+  method: POST
+  headers:
+    Content-Type: application/xml
+  body:
+    type: xml
+    content: |-
+      <?xml version="1.0" encoding="UTF-8"?>
+      <BasicDocument xmlns="http://example.com/xsd2collection/sample" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        <Id>DOC-1001</Id>
+        <Message>SAMPLE_TEXT</Message>
+        <CreatedAt>2024-01-01T00:00:00</CreatedAt>
+      </BasicDocument>
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/xml
+  body:
+    type: text
+    content: ""
+order: 1000
