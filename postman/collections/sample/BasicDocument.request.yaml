@@ -1,0 +1,57 @@
+$kind: http-request
+method: POST
+url: '{{baseurl}}/sample/BasicDocument'
+headers:
+  - key: Content-Type
+    value: application/xml
+body:
+  type: xml
+  content: |-
+    <?xml version="1.0" encoding="UTF-8"?>
+    <BasicDocument xmlns="http://example.com/xsd2collection/sample" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+      <Id>DOC-1001</Id>
+      <Message>SAMPLE_TEXT</Message>
+      <CreatedAt>2024-01-01T00:00:00</CreatedAt>
+    </BasicDocument>
+examples: ./.resources/BasicDocument.resources/examples
+scripts:
+  - type: beforeRequest
+    code: |-
+      const xmlBody = pm.request.body.toString();
+      
+      const validationResult = await new Promise((resolve, reject) => {
+        pm.sendRequest({
+          url: pm.variables.replaceIn('{{validationUrl}}') + '/sample/BasicDocument',
+          method: 'POST',
+          header: {
+            'Content-Type': 'application/xml'
+          },
+          body: {
+            mode: 'raw',
+            raw: xmlBody
+          }
+        }, function (err, response) {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve(response.json());
+        });
+      });
+      
+      console.log('Validation result:', JSON.stringify(validationResult, null, 2));
+      
+      if (!validationResult.valid) {
+        console.error('[FAIL] XSD Validation failed: ' + validationResult.message);
+        throw new Error('XSD Validation failed: ' + validationResult.message);
+      } else {
+        console.log('[OK] XSD validation passed, proceeding with request...');
+      }
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+    language: text/javascript
+order: 1000

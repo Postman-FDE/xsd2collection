@@ -1,0 +1,9 @@
+$kind: environment
+name: Local
+values:
+  - key: baseurl
+    value: 'https://api.example.com'
+    enabled: true
+  - key: validationUrl
+    value: 'http://localhost:3456'
+    enabled: true
